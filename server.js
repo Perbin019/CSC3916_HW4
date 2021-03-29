@@ -1,26 +1,25 @@
+require('dotenv').config()
+
 var express = require('express');
 var bodyParser = require('body-parser');
 var passport = require('passport');
 var authController = require('./auth');
-require('dotenv').config({ path: './.env' });
+require('dotenv').config({ path:'./.env' });
 var authJwtController = require('./auth_jwt');
 var jwt = require('jsonwebtoken');
 var cors = require('cors');
 var User = require('./Users');
+var app = express();
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(passport.initialize());
+var router = express.Router();
 var Movie = require('./Movies');
 var Review = require('./Reviews');
 var mongoose = require('mongoose');
 var rp = require('request-promise');
 const crypto = require("crypto");
-
-var app = express();
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-
-app.use(passport.initialize());
-
-var router = express.Router();
 
 const GA_TRACKING_ID = process.env.GA_KEY;
 
@@ -79,7 +78,6 @@ router.post('/signup', function (req, res) {
     if (!req.body.username || !req.body.password) {
         res.json({ success: false, msg: 'Please include both username and password to signup.' })
     } else {
-
         var user = new User();
         user.name = req.body.name;
         user.username = req.body.username;
@@ -87,19 +85,18 @@ router.post('/signup', function (req, res) {
 
         user.save(function (err) {
             if (err) {
-                if (err.code === 11000) {
-                    return res.json({success: false, message: 'A user with that username already exists'});
-                } else {
+                if (err.code == 11000)
+                    return res.json({ success: false, message: 'A user with that username already exists.' });
+                else
                     return res.json(err);
-                }
             }
-            res.json({ success: true, msg: 'Successfully created new user.' });
+
+            res.json({ success: true, msg: 'Successfully created new user.' })
         });
     }
 });
 
 router.post('/signin', function (req, res) {
-
     var userNew = new User();
     userNew.username = req.body.username;
     userNew.password = req.body.password;
@@ -128,9 +125,9 @@ router.route('/movies/:movie_title')
 
             Movie.findOne({title: req.params.movie_title}, function(err, movie) {
                 if (err) {
-                    return res.status(403).json({success: false, message: "Unable to get reviews for title passed in"});
+                    return res.status(403).json({success: false, message: "Error: Unable to get reviews for title passed in"});
                 } else if (!movie) {
-                    return res.status(403).json({success: false, message: "Unable to find title passed in."});
+                    return res.status(403).json({success: false, message: "Error: Unable to find title passed in."});
                 } else {
 
                     Movie.aggregate()
@@ -139,9 +136,9 @@ router.route('/movies/:movie_title')
                         .addFields({averaged_rating: {$avg: "$reviews.rating"}})
                         .exec (function(err, mov) {
                             if (err) {
-                                return res.status(403).json({success: false, message: "The movie title parameter was not found."});
+                                return res.status(403).json({success: false, message: "Error: The movie title parameter was not found."});
                             } else {
-                                return res.status(200).json({success: true, message: "Movie title passed in and it's reviews were found.", movie: mov});
+                                return res.status(200).json({success: true, message: "Error: Movie title passed in and the reviews were found.", movie: mov});
                             }
 
                         })
@@ -150,7 +147,7 @@ router.route('/movies/:movie_title')
         } else {
             Movie.find({title: req.params.movie_title}).select("title year_released genre actors").exec(function (err, movie) {
                 if (err) {
-                    return res.status(403).json({success: false, message: "Unable to retrieve title passed in."});
+                    return res.status(403).json({success: false, message: "Error: Unable to retrieve title passed in."});
                 }
                 if (movie && movie.length > 0) {
                     return res.status(200).json({
@@ -161,7 +158,7 @@ router.route('/movies/:movie_title')
                 } else {
                     return res.status(404).json({
                         success: false,
-                        message: "Unable to retrieve a match for title passed in."
+                        message: "Error: Unable to retrieve a match for title passed in."
                     });
                 }
 
@@ -169,10 +166,12 @@ router.route('/movies/:movie_title')
         }
     });
 
+
+//movies:
 router.route('/movies')
     .post(authJwtController.isAuthenticated, function (req, res) {
         if (!req.body.title || !req.body.year_released || !req.body.genre || !req.body.actors[0] || !req.body.actors[1] || !req.body.actors[2]) {
-            return res.json({ success: false, message: 'Please include all information for title, year released, genre, and 3 actors.'});
+            return res.json({ success: false, message: 'Error: Put all information for title, year released, genre, and 3 actors.'});
         } else {
             var movie = new Movie();
 
@@ -184,7 +183,7 @@ router.route('/movies')
             movie.save(function (err) {
                 if (err) {
                     if (err.code === 11000) {
-                        return res.json({ success: false, message: "That movie already exists."});
+                        return res.json({ success: false, message: "Error: That movie already exists."});
                     } else {
                         return res.send(err);
                     }
@@ -196,13 +195,13 @@ router.route('/movies')
     })
     .put(authJwtController.isAuthenticated, function (req, res) {
         if (!req.body.find_title || !req.body.update_title) {
-            return res.json({ success: false, message: "Please provide a title to be updated as well as the new updated title."});
+            return res.json({ success: false, message: "Error: Provide a title to be updated as well as the new updated title."});
         } else {
             Movie.findOneAndUpdate( req.body.find_title, req.body.update_title, function (err, movie) {
                 if (err) {
-                    return res.status(403).json({success: false, message: "Unable to update title passed in."});
+                    return res.status(403).json({success: false, message: "Error: Unable to update title passed in."});
                 } else if (!movie) {
-                    return res.status(403).json({success: false, message: "Unable to find title to update."});
+                    return res.status(403).json({success: false, message: "Error: Unable to find title to update."});
                 } else {
                     return res.status(200).json({success: true, message: "Successfully updated title."});
                 }
@@ -211,13 +210,13 @@ router.route('/movies')
     })
     .delete(authJwtController.isAuthenticated, function (req, res) {
         if (!req.body.find_title) {
-            return res.json({ success: false, message: "Please provide a title to delete." });
+            return res.json({ success: false, message: "Error: Provide a title to delete." });
         } else {
             Movie.findOneAndDelete( req.body.find_title, function (err, movie) {
                 if (err) {
-                    return res.status(403).json({success: false, message: "Unable to delete title passed in."});
+                    return res.status(403).json({success: false, message: "Error: Unable to delete title passed in."});
                 } else if (!movie) {
-                    return res.status(403).json({success: false, message: "Unable to find title to delete."});
+                    return res.status(403).json({success: false, message: "Error: Unable to find title to delete."});
                 } else {
                     return res.status(200).json({success: true, message: "Successfully deleted title."});
                 }
@@ -226,62 +225,52 @@ router.route('/movies')
     })
     .get(authJwtController.isAuthenticated, function (req, res) {
         if (!req.body.find_title) {
-            return res.json({ success: false, message: "Please provide a title to be retrieved." });
+            return res.json({ success: false, message: "Error: Provide a title to be retrieved." });
         } else {
-
             if (req.query && req.query.reviews && req.query.reviews === "true") {
-
                 Movie.findOne(req.body.find_title, function(err, movie) {
                     if (err) {
-                        return res.status(403).json({success: false, message: "Unable to get reviews for title passed in"});
+                        return res.status(403).json({success: false, message: "Error: Unable to get reviews for title passed in"});
                     } else if (!movie) {
-                        return res.status(403).json({success: false, message: "Unable to find title passed in."});
+                        return res.status(403).json({success: false, message: "Error: Unable to find title passed in."});
                     } else {
-
                         Movie.aggregate()
                             .match({_id: mongoose.Types.ObjectId(movie._id)})
                             .lookup({from: 'reviews', localField: '_id', foreignField: 'movie_id', as: 'reviews'})
                             .addFields({averaged_rating: {$avg: "$reviews.rating"}})
                             .exec (function(err, mov) {
                                 if (err) {
-                                    return res.status(403).json({success: false, message: "The movie title parameter was not found."});
+                                    return res.status(403).json({success: false, message: "Error: The movie title parameter was not found."});
                                 } else {
-                                    return res.status(200).json({success: true, message: "Movie title passed in and it's reviews were found.", movie: mov});
+                                    return res.status(200).json({success: true, message: "Error: Movie title passed in and it's reviews were found.", movie: mov});
                                 }
                             })
-                    }
-                })
-            }
+                        }
+                    })
+                }
             else {
-                Movie.find(req.body.find_title).select("title year_released genre actors").exec(function (err, movie) {
-                    if (err) {
-                        return res.status(403).json({success: false, message: "Unable to retrieve title passed in."});
-                    }
-                    if (movie && movie.length > 0) {
-                        return res.status(200).json({
-                            success: true,
-                            message: "Successfully retrieved movie.",
-                            movie: movie
-                        });
-                    } else {
-                        return res.status(404).json({
-                            success: false,
-                            message: "Unable to retrieve a match for title passed in."
-                        });
-                    }
-                })
-            }
+            Movie.find( req.body.find_title).select("title year_released genre actors").exec(function (err, movie) {
+                if (err) {
+                    return res.status(403).json({success: false, message: "Error: Unable to retrieve title passed in."});
+                }
+                if (movie && movie.length > 0) {
+                    return res.status(200).json({success: true, message: "Successfully retrieved movie.", movie: movie});
+                } else {
+                    return res.status(404).json({success: false, message: "Error: Unable to retrieve a match for title passed in."});
+                }
+            })
         }
-    })
+    }
+})
     .all(function(req, res) {
         return res.status(403).json({success: false, message: "This HTTP method is not supported. Only GET, POST, PUT, and DELETE are supported."});
     });
 
-router.route('/reviews')
+    router.route('/reviews')
     .post(authJwtController.isAuthenticated, function(req, res) {
-        if (!req.body.small_quote || !req.body.rating || !req.body.title)
+        if (!req.body.comment || !req.body.rating || !req.body.title)
         {
-            return res.json({ success: false, message: 'Please include all information for small quote, rating, and title to query.'});
+            return res.json({ success: false, message: 'Include all information for comment, rating, and title to query.'});
         }
         else {
             var review = new Review();
@@ -290,24 +279,24 @@ router.route('/reviews')
             jwt.verify(req.headers.authorization.substring(4), process.env.SECRET_KEY, function(err, ver_res) {
                 if (err)
                 {
-                    return res.status(403).json({success: false, message: "Unable to post review passed in."});
+                    return res.status(403).json({success: false, message: "Error: Unable to post review passed in."});
                 } else {
                     review.user_id = ver_res.id;
 
                     Movie.findOne({title: req.body.title}, function(err, movie) {
                         if (err) {
-                            return res.status(403).json({success: false, message: "Unable to post review for title passed in"});
+                            return res.status(403).json({success: false, message: "Error: Unable to post review for title passed in"});
                         } else if (!movie) {
-                            return res.status(403).json({success: false, message: "Unable to find title to post review for."});
+                            return res.status(403).json({success: false, message: "Error: Unable to find title to post review for."});
                         } else {
                             review.movie_id = movie._id;
                             review.username = ver_res.username;
-                            review.small_quote = req.body.small_quote;
+                            review.comment = req.body.comment;
                             review.rating = req.body.rating;
 
                             review.save (function (err) {
                                 if (err) {
-                                    return res.status(403).json({success: false, message: "Unable to post review for title passed in."});
+                                    return res.status(403).json({success: false, message: "Error: Unable to post review for title passed in."});
                                 } else {
                                     trackDimension(movie.genre, 'post/review', 'POST', review.rating, movie.title, '1');
 
@@ -321,11 +310,11 @@ router.route('/reviews')
         }
     })
     .all (function (req, res) {
-        return res.status(403).json({success: false, message: "This HTTP method is not supported. Only POST is supported."});
+        return res.status(403).json({success: false, message: "Error: This HTTP method is not supported. Only support POST method."});
     });
 
 router.all('/', function (req, res) {
-    return res.status(403).json({ success: false, msg: 'This route is not supported.' });
+    return res.status(403).json({ success: false, msg: 'Error: This route is not supported.' });
 });
 
 router.route('/test')
@@ -341,5 +330,3 @@ router.route('/test')
 app.use('/', router);
 app.listen(process.env.PORT || 8080);
 module.exports = app; // for testing only
-
-
